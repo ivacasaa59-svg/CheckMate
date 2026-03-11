@@ -1,25 +1,51 @@
 import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TextInput, 
-  TouchableOpacity, 
-  Alert, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  Pressable,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
-  StatusBar
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTasks } from '../context/TaskContext';
+// Metro resuelve automáticamente el archivo correcto según la plataforma:
+//   iOS/Android → DatePickerField.native.js
+//   Web         → DatePickerField.web.js
+import DatePickerField from '../components/DatePickerField';
+
+/**
+ * Formatea un Date para guardarlo como texto legible en la tarea.
+ * Ejemplo: "mié., 12 mar · 3:00 p. m."
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+const formatSaveDate = (date) => {
+  const dayPart = date.toLocaleDateString('es-ES', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const timePart = date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${dayPart} · ${timePart}`;
+};
 
 export default function AddTaskScreen({ navigation }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isTitleFocused, setIsTitleFocused] = useState(false);
   const [isDescFocused, setIsDescFocused] = useState(false);
-  
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const { addTask } = useTasks();
 
   const handleSave = () => {
@@ -28,42 +54,44 @@ export default function AddTaskScreen({ navigation }) {
       return;
     }
 
-    const newTask = {
+    addTask({
       title: title.trim(),
       description: description.trim(),
-      date: new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }),
-    };
+      date: formatSaveDate(selectedDate),
+    });
 
-    addTask(newTask);
     navigation.goBack();
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
     >
       <StatusBar barStyle="dark-content" />
-      
+
+      {/* ── Cabecera ── */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
-          style={styles.backButton}
-          activeOpacity={0.7}
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
         >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.headerTitle}>Crear Nueva Tarea</Text>
-        <View style={{ width: 40 }} /> {/* Spacer to center title */}
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
+          {/* Icono decorativo */}
           <View style={styles.illustrationContainer}>
             <View style={styles.iconCircle}>
               <Ionicons name="create" size={40} color="#6366F1" />
@@ -72,13 +100,16 @@ export default function AddTaskScreen({ navigation }) {
           </View>
 
           <View style={styles.form}>
+            {/* ── Título ── */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>¿Qué tienes planeado?</Text>
-              <View style={[
-                styles.inputWrapper, 
-                isTitleFocused && styles.inputWrapperFocused
-              ]}>
-                <Ionicons name="pencil-outline" size={20} color={isTitleFocused ? "#6366F1" : "#94A3B8"} style={styles.inputIcon} />
+              <View style={[styles.inputWrapper, isTitleFocused && styles.inputWrapperFocused]}>
+                <Ionicons
+                  name="pencil-outline"
+                  size={20}
+                  color={isTitleFocused ? '#6366F1' : '#94A3B8'}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={styles.input}
                   placeholder="Ej. Comprar materiales de React"
@@ -88,18 +119,14 @@ export default function AddTaskScreen({ navigation }) {
                   onFocus={() => setIsTitleFocused(true)}
                   onBlur={() => setIsTitleFocused(false)}
                   maxLength={60}
-                  autoFocus
                 />
               </View>
             </View>
 
+            {/* ── Descripción ── */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Notas adicionales (opcional)</Text>
-              <View style={[
-                styles.inputWrapper, 
-                styles.textAreaWrapper,
-                isDescFocused && styles.inputWrapperFocused
-              ]}>
+              <View style={[styles.inputWrapper, styles.textAreaWrapper, isDescFocused && styles.inputWrapperFocused]}>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   placeholder="Detalles que no quieras olvidar..."
@@ -114,19 +141,35 @@ export default function AddTaskScreen({ navigation }) {
                 />
               </View>
             </View>
+
+            {/* ── Fecha y hora ── */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Fecha y hora</Text>
+              {/*
+                DatePickerField se resuelve por plataforma:
+                  .native.js → iOS/Android (datetimepicker + Modal)
+                  .web.js    → Web (input[type=datetime-local] nativo del browser)
+              */}
+              <DatePickerField
+                value={selectedDate}
+                onChange={setSelectedDate}
+              />
+            </View>
           </View>
         </View>
       </ScrollView>
 
+      {/* ── Botón guardar ── */}
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.saveButton} 
+        <Pressable
+          style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed]}
           onPress={handleSave}
-          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Guardar tarea"
         >
           <Text style={styles.saveButtonText}>Guardar Tarea</Text>
           <Ionicons name="checkmark-circle" size={24} color="#fff" style={styles.saveIcon} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -159,6 +202,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  backButtonPressed: {
+    backgroundColor: '#F1F5F9',
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -170,6 +216,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingTop: 10,
+    paddingBottom: 24,
   },
   illustrationContainer: {
     alignItems: 'center',
@@ -214,7 +261,6 @@ const styles = StyleSheet.create({
   },
   inputWrapperFocused: {
     borderColor: '#6366F1',
-    backgroundColor: '#FFF',
     borderWidth: 2,
   },
   inputIcon: {
@@ -253,6 +299,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 6,
+  },
+  saveButtonPressed: {
+    backgroundColor: '#4F46E5',
+    elevation: 2,
   },
   saveButtonText: {
     color: '#FFF',
