@@ -6,11 +6,12 @@ import {
   FlatList,
   TouchableOpacity,
   StatusBar,
-  Platform,
   ScrollView,
+  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import TaskItem from '../components/TaskItem/TaskItem';
 import { useTasks } from '../context/TaskContext';
@@ -78,7 +79,10 @@ export default function HomeScreen({ navigation }) {
               <Ionicons name={greeting.icon} size={14} color={isDark ? '#8888AA' : '#D0CCFF'} style={s.greetingIcon} />
               <Text style={s.greeting}>{greeting.label}</Text>
             </View>
-            <Text style={s.title}>CheckMate</Text>
+            <View style={s.titleRow}>
+              <MaterialCommunityIcons name="chess-knight" size={38} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={s.title}>CheckMate</Text>
+            </View>
           </View>
 
           <View style={s.headerActions}>
@@ -182,7 +186,7 @@ export default function HomeScreen({ navigation }) {
         activeOpacity={0.85}
       >
         <LinearGradient colors={theme.accentGradient} style={s.fab} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Ionicons name="add" size={32} color="#fff" />
+          <MaterialCommunityIcons name="robot-outline" size={32} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
     </SafeAreaView>
@@ -198,6 +202,8 @@ const makeStyles = (t) =>
     greetingRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
     greetingIcon:    { marginRight: 5 },
     greeting:        { fontSize: 14, color: t.dark ? '#8888AA' : '#D0CCFF', fontWeight: '500' },
+    titleRow:        { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+    logoImage:       { width: 48, height: 48, resizeMode: 'contain', marginRight: 10 },
     title:           { fontSize: 30, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
     headerActions:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
     iconBtn: {

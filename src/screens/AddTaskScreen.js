@@ -11,13 +11,16 @@ import {
   FlatList,
   StatusBar,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTasks } from '../context/TaskContext';
 import { useTheme } from '../context/ThemeContext';
 import DatePickerField from '../components/DatePickerField';
 import { scheduleTaskNotification } from '../utils/notifications';
+
+// Removed BOT_LOGO image in favor of vector icon
 
 const formatSaveDate = (date) => {
   const dayPart = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -153,9 +156,9 @@ export default function AddTaskScreen({ navigation }) {
     return (
       <View style={[s.msgWrapper, isBot ? s.msgWrapperBot : s.msgWrapperUser]}>
         {isBot && (
-          <LinearGradient colors={theme.accentGradient} style={s.avatarSmall}>
-            <Ionicons name="hardware-chip" size={16} color="#fff" />
-          </LinearGradient>
+          <View style={s.avatarSmall}>
+             <MaterialCommunityIcons name="robot-outline" size={26} color={theme.accent} />
+          </View>
         )}
         
         <View style={[s.msgBubble, isBot ? s.botMsg : s.userMsg]}>
@@ -280,7 +283,8 @@ const makeStyles = (t) =>
     msgWrapperBot: { justifyContent: 'flex-start' },
     msgWrapperUser: { justifyContent: 'flex-end' },
     
-    avatarSmall: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 8, marginBottom: 4 },
+    avatarSmall: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 8, marginBottom: 4, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
+    avatarImage: { width: '85%', height: '85%', resizeMode: 'contain' },
     
     msgBubble: { maxWidth: '85%', padding: 14, borderRadius: 20 },
     botMsg: { backgroundColor: t.bgCard, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: t.border },
