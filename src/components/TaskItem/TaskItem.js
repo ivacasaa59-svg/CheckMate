@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   Animated,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -30,20 +31,23 @@ export default function TaskItem({ title, description, isCompleted, date, priori
   const handlePressOut = () =>
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
 
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+
   const handleDeletePress = () => {
     if (Platform.OS === 'web') {
       if (window.confirm(`¿Eliminar "${title}"?`)) onDelete();
     } else {
-      Alert.alert(
-        'Eliminar tarea',
-        `¿Eliminar "${title}"?\nEsta acción no se puede deshacer.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: onDelete },
-        ],
-        { cancelable: true }
-      );
+      setShowDeleteModal(true);
     }
+  };
+
+  const confirmDelete = () => {
+    setShowDeleteModal(false);
+    onDelete();
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
   };
 
   const s = React.useMemo(() => makeStyles(theme, isCompleted), [theme, isCompleted]);
@@ -120,6 +124,37 @@ export default function TaskItem({ title, description, isCompleted, date, priori
           <Ionicons name="trash-outline" size={19} color="#FF5E7A" />
         </Pressable>
       </View>
+
+      {/* ── Modal de confirmación de eliminación ── */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDelete}
+      >
+        <Pressable style={s.modalOverlay} onPress={cancelDelete} />
+        <View style={s.modalContainerWrapper}>
+          <View style={s.modalContent}>
+            <View style={s.modalIconCircle}>
+              <Ionicons name="trash" size={32} color="#FF5E7A" />
+            </View>
+            <Text style={s.modalTitle}>¿Eliminar tarea?</Text>
+            <Text style={s.modalMessage}>
+              Estás a punto de eliminar <Text style={{ fontWeight: '700', color: theme.textPrimary }}>"{title}"</Text>. Esta acción no se puede deshacer.
+            </Text>
+            
+            <View style={s.modalActions}>
+              <Pressable style={[s.modalBtn, s.modalBtnCancel]} onPress={cancelDelete}>
+                <Text style={s.modalBtnCancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={[s.modalBtn, s.modalBtnDelete]} onPress={confirmDelete}>
+                <Text style={s.modalBtnDeleteText}>Eliminar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </Animated.View>
   );
 }
@@ -163,4 +198,85 @@ const makeStyles = (t, isCompleted) =>
     dateBadge:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
     dateText:       { fontSize: 11, color: t.textMuted, fontWeight: '500' },
     deleteButton:   { paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, minWidth: 48, ...Platform.select({ web: { cursor: 'pointer' } }) },
+
+    // Estilos del Modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+    },
+    modalContainerWrapper: {
+      position: 'absolute',
+      top: 0, bottom: 0, left: 0, right: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      pointerEvents: 'box-none',
+    },
+    modalContent: {
+      backgroundColor: t.bgCard,
+      width: '85%',
+      maxWidth: 340,
+      borderRadius: 24,
+      padding: 24,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: t.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      elevation: 20,
+    },
+    modalIconCircle: {
+      width: 64, height: 64,
+      borderRadius: 32,
+      backgroundColor: '#FF5E7A18',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: '#FF5E7A44',
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: t.textPrimary,
+      marginBottom: 8,
+    },
+    modalMessage: {
+      fontSize: 15,
+      color: t.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: 12,
+      width: '100%',
+    },
+    modalBtn: {
+      flex: 1,
+      height: 48,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalBtnCancel: {
+      backgroundColor: t.inputBg,
+      borderWidth: 1.5,
+      borderColor: t.border,
+    },
+    modalBtnCancelText: {
+      color: t.textSecondary,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    modalBtnDelete: {
+      backgroundColor: '#FF5E7A',
+    },
+    modalBtnDeleteText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '700',
+    },
   });
