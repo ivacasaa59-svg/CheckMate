@@ -9,41 +9,20 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
-/**
- * Formatea un Date para mostrarlo en el botón.
- * @param {Date} date
- * @returns {string}
- */
 const formatDisplayDate = (date) => {
-  const dayPart = date.toLocaleDateString('es-ES', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  const timePart = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const dayPart = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  const timePart = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
   return `${dayPart} · ${timePart}`;
 };
 
-/**
- * Selector de fecha/hora para iOS y Android.
- * Usa @react-native-community/datetimepicker:
- *  - iOS: Modal con spinner datetime
- *  - Android: diálogos nativos secuenciales (fecha → hora)
- *
- * @param {Date}     value     - Fecha actualmente seleccionada.
- * @param {Function} onChange  - Callback con la nueva Date al confirmar.
- */
 export default function DatePickerField({ value, onChange }) {
-  /** Copia temporal: no se confirma hasta que el usuario presiona "Listo" (iOS). */
+  const { theme, isDark } = useTheme();
+
   const [tempDate, setTempDate] = useState(value);
   const [showModal, setShowModal] = useState(false);
 
-  // Android: necesita dos pasos secuenciales
   const [androidMode, setAndroidMode] = useState('date');
   const [showAndroid, setShowAndroid] = useState(false);
 
@@ -76,7 +55,6 @@ export default function DatePickerField({ value, onChange }) {
     if (androidMode === 'date') {
       updated.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
       onChange(updated);
-      // Abrir picker de hora como segundo paso
       setAndroidMode('time');
       setShowAndroid(true);
     } else {
@@ -86,21 +64,23 @@ export default function DatePickerField({ value, onChange }) {
     }
   };
 
+  const s = makeStyles(theme, isDark);
+
   return (
     <>
-      {/* ── Botón que muestra la fecha y abre el picker ── */}
+      {/* Botón que muestra la fecha */}
       <Pressable
-        style={({ pressed }) => [styles.dateButton, pressed && styles.dateButtonPressed]}
+        style={({ pressed }) => [s.dateButton, pressed && s.dateButtonPressed]}
         onPress={openPicker}
         accessibilityLabel="Seleccionar fecha y hora"
         accessibilityRole="button"
       >
-        <Ionicons name="calendar" size={22} color="#6366F1" style={styles.icon} />
-        <Text style={styles.dateText}>{formatDisplayDate(value)}</Text>
-        <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+        <Ionicons name="calendar" size={20} color={theme.accent} style={s.icon} />
+        <Text style={s.dateText}>{formatDisplayDate(value)}</Text>
+        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
       </Pressable>
 
-      {/* ── Modal iOS ── */}
+      {/* Modal iOS */}
       {Platform.OS === 'ios' && (
         <Modal
           visible={showModal}
@@ -108,15 +88,15 @@ export default function DatePickerField({ value, onChange }) {
           animationType="slide"
           onRequestClose={cancelIOS}
         >
-          <Pressable style={styles.overlay} onPress={cancelIOS} />
-          <View style={styles.sheet}>
-            <View style={styles.toolbar}>
-              <Pressable onPress={cancelIOS} style={styles.toolbarBtn}>
-                <Text style={styles.cancelText}>Cancelar</Text>
+          <Pressable style={s.overlay} onPress={cancelIOS} />
+          <View style={s.sheet}>
+            <View style={s.toolbar}>
+              <Pressable onPress={cancelIOS} style={s.toolbarBtn}>
+                <Text style={s.cancelText}>Cancelar</Text>
               </Pressable>
-              <Text style={styles.toolbarTitle}>Elige fecha y hora</Text>
-              <Pressable onPress={confirmIOS} style={styles.toolbarBtn}>
-                <Text style={styles.confirmText}>Listo</Text>
+              <Text style={s.toolbarTitle}>Fecha y hora</Text>
+              <Pressable onPress={confirmIOS} style={s.toolbarBtn}>
+                <Text style={s.confirmText}>Listo</Text>
               </Pressable>
             </View>
             <DateTimePicker
@@ -125,13 +105,14 @@ export default function DatePickerField({ value, onChange }) {
               display="spinner"
               onChange={handleIOSChange}
               locale="es-ES"
-              style={styles.picker}
+              style={s.picker}
+              themeVariant={isDark ? "dark" : "light"}
             />
           </View>
         </Modal>
       )}
 
-      {/* ── Dialog nativo Android ── */}
+      {/* Dialog nativo Android */}
       {Platform.OS === 'android' && showAndroid && (
         <DateTimePicker
           value={value}
@@ -144,71 +125,75 @@ export default function DatePickerField({ value, onChange }) {
   );
 }
 
-const styles = StyleSheet.create({
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E0E7FF',
-    paddingHorizontal: 16,
-    height: 56,
-  },
-  dateButtonPressed: {
-    backgroundColor: '#F5F3FF',
-  },
-  icon: {
-    marginRight: 12,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1E293B',
-    fontWeight: '500',
-  },
-  // Modal iOS
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  sheet: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 40,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  toolbarTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  toolbarBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    minWidth: 64,
-  },
-  cancelText: {
-    fontSize: 15,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  confirmText: {
-    fontSize: 15,
-    color: '#6366F1',
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  picker: {
-    width: '100%',
-  },
-});
+const makeStyles = (t, isDark) =>
+  StyleSheet.create({
+    dateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: t.inputBg,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: t.border,
+      paddingHorizontal: 14,
+      height: 54,
+    },
+    dateButtonPressed: {
+      backgroundColor: t.inputFocusBg,
+      borderColor: t.accent,
+    },
+    icon: {
+      marginRight: 10,
+    },
+    dateText: {
+      flex: 1,
+      fontSize: 14,
+      color: t.textPrimary,
+      fontWeight: '500',
+    },
+    // Modal iOS
+    overlay: {
+      flex: 1,
+      backgroundColor: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)',
+    },
+    sheet: {
+      backgroundColor: t.bgCard,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingBottom: 40,
+      borderTopWidth: 1,
+      borderColor: t.border,
+    },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+    },
+    toolbarTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: t.textPrimary,
+    },
+    toolbarBtn: {
+      paddingVertical: 4,
+      paddingHorizontal: 4,
+      minWidth: 64,
+    },
+    cancelText: {
+      fontSize: 15,
+      color: t.textSecondary,
+      fontWeight: '500',
+    },
+    confirmText: {
+      fontSize: 15,
+      color: t.accent,
+      fontWeight: '700',
+      textAlign: 'right',
+    },
+    picker: {
+      width: '100%',
+    },
+  });

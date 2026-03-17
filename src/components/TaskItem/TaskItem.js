@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -6,53 +6,37 @@ import {
   Pressable,
   Alert,
   Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
-/**
- * Tarjeta de tarea individual. Soporta iOS, Android y Web.
- *
- * Usa `Pressable` en lugar de `TouchableOpacity` para:
- * - Evitar el delay de reconocimiento de gesto dentro de FlatList.
- * - Funcionar correctamente en Web (cursor pointer, sin conflicto de scroll).
- * - Obtener retroalimentación de ripple nativa en Android.
- *
- * @param {string}   title        - Título de la tarea.
- * @param {string}   description  - Descripción opcional.
- * @param {boolean}  isCompleted  - Estado de completado.
- * @param {string}   date         - Fecha/hora formateada a mostrar.
- * @param {Function} onPress      - Toggle del estado completado.
- * @param {Function} onDelete     - Elimina la tarea del estado global.
- */
-export default function TaskItem({ title, description, isCompleted, date, onPress, onDelete }) {
-  /**
-   * Controla el modo de confirmación inline del botón eliminar.
-   * Cuando es `true`, el ícono cambia a un check rojo pidiendo confirmación.
-   * Si el usuario no confirma en 3 segundos, se cancela automáticamente.
-   */
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+const PRIORITY_CONFIG = {
+  alta:  { icon: 'flame',        label: 'Alta'  },
+  media: { icon: 'alert-circle', label: 'Media' },
+  baja:  { icon: 'leaf',         label: 'Baja'  },
+};
 
-  /**
-   * Primer tap: activa el modo de confirmación (muestra ícono check).
-   * Segundo tap o Alert (native): ejecuta el borrado definitivo.
-   */
+export default function TaskItem({ title, description, isCompleted, date, priority = 'media', themeVersion, onPress, onDelete }) {
+  const { theme } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const priorityCfg  = PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.media;
+  const priorityColor = isCompleted ? theme.textMuted : theme.priorityBar[priority] || theme.accent;
+
+  const handlePressIn = () =>
+    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+
+  const handlePressOut = () =>
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
+
   const handleDeletePress = () => {
     if (Platform.OS === 'web') {
-      // En web usamos confirmación inline de dos-tap para evitar
-      // problemas con window.confirm() que bloquea el hilo en algunos browsers.
-      if (confirmingDelete) {
-        setConfirmingDelete(false);
-        onDelete();
-      } else {
-        setConfirmingDelete(true);
-        // Auto-cancelar si el usuario no confirma en 3 segundos
-        setTimeout(() => setConfirmingDelete(false), 3000);
-      }
+      if (window.confirm(`¿Eliminar "${title}"?`)) onDelete();
     } else {
-      // En native usamos el dialog nativo que funciona perfectamente
       Alert.alert(
         'Eliminar tarea',
-        `¿Eliminar "${title}"? Esta acción no se puede deshacer.`,
+        `¿Eliminar "${title}"?\nEsta acción no se puede deshacer.`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Eliminar', style: 'destructive', onPress: onDelete },
@@ -62,182 +46,121 @@ export default function TaskItem({ title, description, isCompleted, date, onPres
     }
   };
 
+  const s = React.useMemo(() => makeStyles(theme, isCompleted), [theme, isCompleted]);
+
   return (
-    <View style={[styles.container, isCompleted && styles.containerCompleted]}>
+    <Animated.View style={[s.wrapper, { transform: [{ scale: scaleAnim }] }]}>
+      <View style={s.container}>
+        {/* Borde izquierdo de prioridad */}
+        <View style={[s.priorityBar, { backgroundColor: priorityColor }]} />
 
-      {/* ── Área clickeable principal (toggle completado) ── */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.taskTouchArea,
-          pressed && styles.taskAreaPressed,
-        ]}
-        onPress={onPress}
-        android_ripple={{ color: '#E8EAFF', borderless: false }}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isCompleted }}
-        accessibilityLabel={`Tarea: ${title}. ${isCompleted ? 'Completada' : 'Pendiente'}. Toca para cambiar estado.`}
-      >
-        <View style={styles.content}>
-          <View style={styles.headerRow}>
-            <Text
-              style={[styles.title, isCompleted && styles.textCompleted]}
-              numberOfLines={2}
-            >
-              {title}
-            </Text>
-            <Ionicons
-              name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-              size={24}
-              color={isCompleted ? '#4CAF50' : '#CBD5E1'}
-            />
-          </View>
-
-          {description ? (
-            <Text
-              style={[styles.description, isCompleted && styles.textCompleted]}
-              numberOfLines={2}
-            >
-              {description}
-            </Text>
-          ) : null}
-
-          {date ? (
-            <View style={styles.footerRow}>
-              <Ionicons name="calendar-outline" size={13} color="#94A3B8" style={styles.dateIcon} />
-              <Text style={styles.dateText}>{date}</Text>
+        {/* Área principal */}
+        <Pressable
+          style={s.taskTouchArea}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          android_ripple={{ color: theme.accentSoft }}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isCompleted }}
+          accessibilityLabel={`Tarea: ${title}. ${isCompleted ? 'Completada' : 'Pendiente'}.`}
+        >
+          <View style={s.content}>
+            {/* Título + check */}
+            <View style={s.headerRow}>
+              <Text style={s.title} numberOfLines={2}>{title}</Text>
+              <View style={s.checkCircle}>
+                {isCompleted && <Ionicons name="checkmark" size={13} color="#fff" />}
+              </View>
             </View>
-          ) : null}
-        </View>
-      </Pressable>
 
-      {/* ── Botón eliminar ── */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.deleteButton,
-          confirmingDelete && styles.deleteButtonConfirming,
-          pressed && styles.deleteButtonPressed,
-        ]}
-        onPress={handleDeletePress}
-        android_ripple={{ color: '#FFCDD2', borderless: false }}
-        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-        accessibilityLabel={
-          confirmingDelete
-            ? 'Confirmar eliminación. Toca de nuevo para eliminar.'
-            : `Eliminar tarea: ${title}`
-        }
-        accessibilityRole="button"
-      >
-        <Ionicons
-          name={confirmingDelete ? 'checkmark-circle' : 'trash-outline'}
-          size={21}
-          color={confirmingDelete ? '#C62828' : '#EF5350'}
-        />
-        {/* Etiqueta pequeña de confirmación solo en web */}
-        {confirmingDelete && Platform.OS === 'web' && (
-          <Text style={styles.confirmLabel}>¿Seguro?</Text>
-        )}
-      </Pressable>
-    </View>
+            {/* Descripción */}
+            {description ? (
+              <Text style={s.description} numberOfLines={2}>{description}</Text>
+            ) : null}
+
+            {/* Footer */}
+            <View style={s.footerRow}>
+              {!isCompleted ? (
+                <View style={[s.priorityBadge, { backgroundColor: priorityColor + '22', borderColor: priorityColor + '55' }]}>
+                  <Ionicons name={priorityCfg.icon} size={11} color={priorityColor} />
+                  <Text style={[s.priorityText, { color: priorityColor }]}>{priorityCfg.label}</Text>
+                </View>
+              ) : (
+                <View style={s.completedBadge}>
+                  <Ionicons name="checkmark-circle-outline" size={12} color={theme.cyan} />
+                  <Text style={s.completedBadgeText}>Completada</Text>
+                </View>
+              )}
+              {date ? (
+                <View style={s.dateBadge}>
+                  <Ionicons name="time-outline" size={11} color={theme.textMuted} />
+                  <Text style={s.dateText}>{date}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Botón eliminar */}
+        <Pressable
+          style={({ pressed }) => [
+            s.deleteButton,
+            { 
+              backgroundColor: pressed ? (theme.dark ? '#2A1020' : '#FFE5EA') : theme.deleteBtn,
+              borderLeftColor: theme.deleteBorder
+            }
+          ]}
+          onPress={handleDeletePress}
+          android_ripple={{ color: '#FF5E7A33' }}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+          accessibilityLabel={`Eliminar tarea: ${title}`}
+          accessibilityRole="button"
+        >
+          <Ionicons name="trash-outline" size={19} color="#FF5E7A" />
+        </Pressable>
+      </View>
+    </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    marginVertical: 6,
-    marginHorizontal: 16,
-    // Sombra iOS
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    // Sombra Android / web elevation
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: '#6366F1',
-    flexDirection: 'row',
-    alignItems: 'stretch', // El botón de eliminar ocupa toda la altura
-    overflow: 'hidden',    // Para que el ripple de Android se recorte al borde
-  },
-  containerCompleted: {
-    opacity: 0.72,
-    borderLeftColor: '#4CAF50',
-  },
-  taskTouchArea: {
-    flex: 1,
-    // cursor pointer en web
-    ...Platform.select({ web: { cursor: 'pointer' } }),
-  },
-  taskAreaPressed: {
-    backgroundColor: '#F8FAFC',
-  },
-  content: {
-    padding: 14,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-    gap: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    flex: 1,
-    lineHeight: 22,
-  },
-  description: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  textCompleted: {
-    textDecorationLine: 'line-through',
-    color: '#94A3B8',
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  dateIcon: {
-    marginRight: 4,
-  },
-  dateText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  // ── Botón eliminar ─────────────────────────────────────────────────────────
-  deleteButton: {
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#FFE0E0',
-    backgroundColor: '#FFF5F5',
-    minWidth: 52,
-    gap: 4,
-    // cursor pointer en web
-    ...Platform.select({ web: { cursor: 'pointer' } }),
-  },
-  deleteButtonConfirming: {
-    // Feedback visual cuando está esperando confirmación (solo web)
-    backgroundColor: '#FFEBEE',
-    borderLeftColor: '#EF9A9A',
-  },
-  deleteButtonPressed: {
-    backgroundColor: '#FFCDD2',
-  },
-  confirmLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#C62828',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-});
+const makeStyles = (t, isCompleted) =>
+  StyleSheet.create({
+    wrapper: { marginVertical: 5, marginHorizontal: 16 },
+    container: {
+      backgroundColor: t.bgCard,
+      borderRadius: 16,
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: t.border,
+      shadowColor: t.dark ? '#000' : '#7C6EFA',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: t.dark ? 0.3 : 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+      opacity: isCompleted ? (t.dark ? 0.6 : 0.7) : 1,
+    },
+    priorityBar: { width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 },
+    taskTouchArea: { flex: 1, ...Platform.select({ web: { cursor: 'pointer' } }) },
+    content: { padding: 14, gap: 6 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+    title:     { fontSize: 15, fontWeight: '700', color: isCompleted ? t.textMuted : t.textPrimary, flex: 1, lineHeight: 21, textDecorationLine: isCompleted ? 'line-through' : 'none' },
+    description:{ fontSize: 13, color: isCompleted ? t.textMuted : t.textSecondary, lineHeight: 19, textDecorationLine: isCompleted ? 'line-through' : 'none' },
+    checkCircle: {
+      width: 22, height: 22, borderRadius: 11,
+      borderWidth: 2,
+      borderColor: isCompleted ? t.accent : t.border,
+      backgroundColor: isCompleted ? t.accent : 'transparent',
+      justifyContent: 'center', alignItems: 'center', marginTop: 1,
+    },
+    footerRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 },
+    priorityBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1 },
+    priorityText:   { fontSize: 11, fontWeight: '700' },
+    completedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: t.cyanSoft, borderWidth: 1, borderColor: t.cyanBorder },
+    completedBadgeText: { fontSize: 11, fontWeight: '700', color: t.cyan },
+    dateBadge:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    dateText:       { fontSize: 11, color: t.textMuted, fontWeight: '500' },
+    deleteButton:   { paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, minWidth: 48, ...Platform.select({ web: { cursor: 'pointer' } }) },
+  });

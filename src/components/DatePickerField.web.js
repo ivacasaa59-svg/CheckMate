@@ -1,32 +1,14 @@
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
-/**
- * Formatea un Date para mostrarlo en el botón.
- * @param {Date} date
- * @returns {string}
- */
 const formatDisplayDate = (date) => {
-  const dayPart = date.toLocaleDateString('es-ES', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  const timePart = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const dayPart = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  const timePart = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
   return `${dayPart} · ${timePart}`;
 };
 
-/**
- * Convierte un Date al formato requerido por <input type="datetime-local">
- * Ejemplo: "2024-03-12T15:30"
- * @param {Date} date
- * @returns {string}
- */
 const toDatetimeLocalValue = (date) => {
   const pad = (n) => String(n).padStart(2, '0');
   return (
@@ -35,28 +17,15 @@ const toDatetimeLocalValue = (date) => {
   );
 };
 
-/**
- * Selector de fecha/hora para Web.
- * Superpone un <input type="datetime-local"> invisible sobre el botón estilizado,
- * de modo que al hacer clic se abre el selector nativo del browser sin código extra.
- *
- * @param {Date}     value     - Fecha actualmente seleccionada.
- * @param {Function} onChange  - Callback con la nueva Date al confirmar.
- */
 export default function DatePickerField({ value, onChange }) {
+  const { theme } = useTheme();
   const inputRef = useRef(null);
 
-  /**
-   * Intenta abrir el picker nativo del browser mediante showPicker().
-   * Si el browser no lo soporta (fallback), el click en el input invisible
-   * igual abre el selector de forma nativa.
-   */
   const handlePress = () => {
     try {
       inputRef.current?.showPicker();
     } catch {
-      // showPicker() no disponible en todos los browsers — el input invisible
-      // igual recibe el click y abre el picker nativo.
+      // Fallback si showPicker no está soportado.
     }
   };
 
@@ -67,23 +36,20 @@ export default function DatePickerField({ value, onChange }) {
     }
   };
 
+  const s = makeStyles(theme);
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.dateButton, pressed && styles.dateButtonPressed]}
+      style={({ pressed }) => [s.dateButton, pressed && s.dateButtonPressed]}
       onPress={handlePress}
       accessibilityLabel="Seleccionar fecha y hora"
       accessibilityRole="button"
     >
-      <Ionicons name="calendar" size={22} color="#6366F1" style={styles.icon} />
-      <Text style={styles.dateText}>{formatDisplayDate(value)}</Text>
-      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+      <Ionicons name="calendar" size={20} color={theme.accent} style={s.icon} />
+      <Text style={s.dateText}>{formatDisplayDate(value)}</Text>
+      <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
 
-      {/*
-        Input invisible superpuesto sobre el botón.
-        Recibe eventos de pointer del browser y activa el date picker nativo
-        sin necesidad de librerías adicionales. opacity:0 lo oculta visualmente
-        pero sigue siendo clickeable para los eventos del DOM.
-      */}
+      {/* Input invisible */}
       <input
         ref={inputRef}
         type="datetime-local"
@@ -99,36 +65,39 @@ export default function DatePickerField({ value, onChange }) {
           cursor: 'pointer',
           border: 'none',
           background: 'transparent',
+          ...(!theme.dark && { colorScheme: 'light' }),
+          ...(theme.dark && { colorScheme: 'dark' }), // Forzar al browser nativo
         }}
       />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E0E7FF',
-    paddingHorizontal: 16,
-    height: 56,
-    overflow: 'hidden',
-    // Cursor pointer en web
-    cursor: 'pointer',
-  },
-  dateButtonPressed: {
-    backgroundColor: '#F5F3FF',
-  },
-  icon: {
-    marginRight: 12,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1E293B',
-    fontWeight: '500',
-  },
-});
+const makeStyles = (t) =>
+  StyleSheet.create({
+    dateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: t.inputBg,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: t.border,
+      paddingHorizontal: 14,
+      height: 54,
+      overflow: 'hidden',
+      cursor: 'pointer',
+    },
+    dateButtonPressed: {
+      backgroundColor: t.inputFocusBg,
+      borderColor: t.accent,
+    },
+    icon: {
+      marginRight: 10,
+    },
+    dateText: {
+      flex: 1,
+      fontSize: 14,
+      color: t.textPrimary,
+      fontWeight: '500',
+    },
+  });
